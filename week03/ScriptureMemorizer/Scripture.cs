@@ -1,65 +1,80 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
-class Scripture
+namespace ScriptureMemorizer
 {
-    private Reference _reference;
-    private List<Word> _words;
-    private Random _random = new Random();
-
-    public Scripture(Reference reference, string text)
+    /// <summary>
+    /// Represents a full scripture: a Reference plus the list of Words
+    /// that make up its text. Encapsulates all the logic for hiding
+    /// words and reporting whether the scripture is fully hidden.
+    /// </summary>
+    public class Scripture
     {
-        _reference = reference;
-        _words = new List<Word>();
+        private readonly Reference _reference;
+        private readonly List<Word> _words;
+        private static readonly Random _random = new Random();
 
-        string[] splitWords = text.Split(" ");
-        foreach (string word in splitWords)
+        public Scripture(Reference reference, string text)
         {
-            _words.Add(new Word(word));
-        }
-    }
-
-    public string GetDisplayText()
-    {
-        string text = _reference.GetDisplayText() + "\n";
-
-        foreach (Word word in _words)
-        {
-            text += word.GetDisplayText() + " ";
+            _reference = reference;
+            // Split on whitespace so punctuation stays attached to its word.
+            _words = text
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => new Word(w))
+                .ToList();
         }
 
-        return text.Trim();
-    }
-
-    // Stretch requirement: only chooses from words that are not already hidden.
-    public void HideRandomWords(int numberToHide)
-    {
-        List<Word> hiddenCandidates = new List<Word>();
-        foreach (Word word in _words)
+        /// <summary>
+        /// Builds the full display text: reference on its own line,
+        /// followed by the scripture text with hidden words shown as
+        /// underscores.
+        /// </summary>
+        public string GetDisplayText()
         {
-            if (!word.IsHidden())
+            string words = string.Join(" ", _words.Select(w => w.GetDisplayText()));
+            return $"{_reference.GetDisplayText()}{Environment.NewLine}{Environment.NewLine}{words}";
+        }
+
+        /// <summary>
+        /// Hides up to <paramref name="numberOfWords"/> randomly chosen
+        /// words that are not already hidden (the stretch-challenge
+        /// behavior: never "wastes" a turn re-hiding a word that is
+        /// already hidden).
+        /// </summary>
+        public void HideRandomWords(int numberOfWords)
+        {
+            List<Word> hideable = _words.Where(w => !w.IsHidden).ToList();
+
+            int amountToHide = Math.Min(numberOfWords, hideable.Count);
+            for (int i = 0; i < amountToHide; i++)
             {
-                hiddenCandidates.Add(word);
+                int index = _random.Next(hideable.Count);
+                hideable[index].Hide();
+                hideable.RemoveAt(index);
             }
         }
 
-        for (int i = 0; i < numberToHide && hiddenCandidates.Count > 0; i++)
+        /// <summary>
+        /// True once every word in the scripture has been hidden.
+        /// </summary>
+        public bool IsCompletelyHidden()
         {
-            int index = _random.Next(hiddenCandidates.Count);
-            hiddenCandidates[index].Hide();
-            hiddenCandidates.RemoveAt(index);
+            return _words.All(w => w.IsHidden);
         }
-    }
 
-    public bool IsCompletelyHidden()
-    {
-        foreach (Word word in _words)
+        /// <summary>
+        /// Percentage (0-100) of words currently hidden. Used to show
+        /// the user their memorization progress.
+        /// </summary>
+        public int PercentHidden()
         {
-            if (!word.IsHidden())
+            if (_words.Count == 0)
             {
-                return false;
+                return 100;
             }
+            int hiddenCount = _words.Count(w => w.IsHidden);
+            return (int)Math.Round(100.0 * hiddenCount / _words.Count);
         }
-        return true;
     }
 }
