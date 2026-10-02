@@ -3,65 +3,82 @@ using System.Collections.Generic;
 
 public class ListingActivity : Activity
 {
-    private PromptPicker _prompts = new PromptPicker(new List<string>
-    {
-        "Who are people that you appreciate?",
-        "What are personal strengths of yours?",
-        "Who are people that you have helped this week?",
-        "When have you felt the Holy Ghost this month?",
-        "Who are some of your personal heroes?"
-    });
+    private readonly List<string> _prompts;
+    private readonly Random _random;
 
-    public ListingActivity() : base(
-        "Listing Activity",
-        "This activity will help you reflect on the good things in your life by having you list as many things as you can in a certain area.")
+    public ListingActivity()
+        : base(
+            "Listing Activity",
+            "This activity will help you reflect on the good things in your life by having " +
+            "you list as many things as you can in a certain area.")
     {
+        _random = new Random();
+
+        _prompts = new List<string>
+        {
+            "Who are people that you appreciate?",
+            "What are personal strengths of yours?",
+            "Who are people that you have helped this week?",
+            "When have you felt the Holy Ghost this month?",
+            "Who are some of your personal heroes?"
+        };
     }
 
-    protected override void RunActivity()
+    public void Run()
     {
+        DisplayStartingMessage();
+
+        string prompt = _prompts[_random.Next(_prompts.Count)];
+
         Console.WriteLine("List as many responses as you can to the following prompt:");
         Console.WriteLine();
-        Console.WriteLine($"--- {_prompts.Next()} ---");
-        Console.WriteLine();
-        Console.Write("You may begin in: ");
-        ShowCountDown(5);
-        Console.WriteLine();
+        Console.WriteLine($"--- {prompt} ---");
         Console.WriteLine();
 
-        List<string> items = CollectItems(GetEndTime());
+        Console.WriteLine("You will have a few seconds to prepare.");
+        ThreadHelper.Countdown(5);
 
         Console.WriteLine();
-        Console.WriteLine($"You listed {items.Count} items!");
-    }
+        Console.WriteLine("Start listing your responses below.");
+        Console.WriteLine();
 
-    // Polls the keyboard so the clock is still checked while the user is idle.
-    // Note: once a user starts typing a line, they finish it with Enter.
-    private List<string> CollectItems(DateTime end)
-    {
-        List<string> items = new List<string>();
+        List<string> responses = new List<string>();
 
-        Console.Write("> ");
-        while (DateTime.Now < end)
+        int duration = GetDuration();
+
+        DateTime endTime = DateTime.Now.AddSeconds(duration);
+
+        while (DateTime.Now < endTime)
         {
-            if (Console.KeyAvailable)
+            Console.Write("> ");
+
+            string response = Console.ReadLine() ?? "";
+
+            if (DateTime.Now >= endTime)
             {
-                string entry = Console.ReadLine();
-                if (!string.IsNullOrWhiteSpace(entry))
-                {
-                    items.Add(entry);
-                }
-                if (DateTime.Now < end)
-                {
-                    Console.Write("> ");
-                }
+                break;
             }
-            else
+
+            if (!string.IsNullOrWhiteSpace(response))
             {
-                System.Threading.Thread.Sleep(50);
+                responses.Add(response);
             }
         }
 
-        return items;
+        Console.WriteLine();
+        Console.WriteLine($"You listed {responses.Count} item(s)!");
+
+        if (responses.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Your responses:");
+
+            for (int i = 0; i < responses.Count; i++)
+            {
+                Console.WriteLine($"{i + 1}. {responses[i]}");
+            }
+        }
+
+        DisplayEndingMessage();
     }
 }
